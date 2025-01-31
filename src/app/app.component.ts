@@ -1,12 +1,10 @@
-import { Component } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Component } from "@angular/core";
+import { PdfVerifierComponent } from "./pdf-verifier/pdf-verifier.component";
 
 @Component({
-  selector: 'app-root',
-  imports: [RouterOutlet],
-  templateUrl: './app.component.html',
-  styleUrl: './app.component.css'
+  selector: "app-root",
+  standalone: true,
+  imports: [PdfVerifierComponent],
+  template: "<app-pdf-verifier></app-pdf-verifier>"
 })
-export class AppComponent {
-  title = 'pdf-signature-verifier';
-}
+export class AppComponent {}

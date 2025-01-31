@@ -1,0 +1,70 @@
+<div class="container">
+  <h2>PDF Signature Verifier</h2>
+  
+  <div class="upload-section">
+    <input 
+      type="file" 
+      accept=".pdf" 
+      (change)="onFileSelected($event)"
+      #fileInput>
+  </div>
+
+  <div *ngIf="loading" class="loading">
+    Analyzing PDF...
+  </div>
+
+  <div *ngIf="error" class="error-message">
+    {{ error }}
+  </div>
+
+  <div *ngIf="signatureInfo" class="signature-info">
+    <h3>Signature Information</h3>
+    <div class="info-item">
+      <strong>Status:</strong>
+      <span [class.valid]="signatureInfo.isValid" 
+            [class.invalid]="!signatureInfo.isValid">
+        {{ signatureInfo.isValid ? 'Valid' : 'Invalid' }}
+      </span>
+    </div>
+    <div class="info-item">
+      <strong>Signed By:</strong> {{ signatureInfo.name }}
+    </div>
+    <div class="info-item">
+      <strong>Signed On:</strong> {{ signatureInfo.date }}
+    </div>
+    <div class="info-item">
+      <strong>Reason:</strong> {{ signatureInfo.reason }}
+    </div>
+  </div>
+
+  <div *ngIf="certificateInfo.length > 0" class="certificate-info">
+    <h3>Certificate Chain Information</h3>
+    <div *ngFor="let cert of certificateInfo; let i = index" class="cert-block">
+      <h4>Certificate {{ i + 1 }} of {{ certificateInfo.length }}</h4>
+      
+      <div class="info-group">
+        <h5>Subject</h5>
+        <div class="info-item">
+          <strong>Issued To:</strong> {{ cert.issuedTo }}
+        </div>
+      </div>
+
+      <div class="info-group">
+        <h5>Issuer</h5>
+        <div class="info-item">
+          <strong>Issued By:</strong> {{ cert.issuedBy }}
+        </div>
+      </div>
+
+      <div class="info-group">
+        <h5>Validity Period</h5>
+        <div class="info-item">
+          <strong>Valid From:</strong> {{ formatDate(cert.validFrom) }}
+        </div>
+        <div class="info-item">
+          <strong>Valid Until:</strong> {{ formatDate(cert.validTo) }}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
