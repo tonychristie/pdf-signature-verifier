@@ -29,6 +29,8 @@ export class PdfVerifierComponent {
   certificateInfo: SimplifiedCertInfo[] = [];
   error: string | null = null;
   loading = false;
+  hasSignature = false;
+  fileProcessed = false;
 
   async onFileSelected(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
@@ -40,80 +42,103 @@ export class PdfVerifierComponent {
     this.error = null;
     this.signatureInfo = null;
     this.certificateInfo = [];
+    this.hasSignature = false;
+    this.fileProcessed = false;
 
     const file = input.files[0];
     try {
       const arrayBuffer = await file.arrayBuffer();
       const fileBuffer = new Uint8Array(arrayBuffer);
 
-      // Get signature verification
-      const verification = await verifyPDF(fileBuffer);
-      console.log(
-        "Verification result:",
-        JSON.stringify(verification, null, 2)
-      );
-
-      if (verification.signatures && verification.signatures.length > 0) {
-        const signature = verification.signatures[0];
-        console.log("Found signature:", JSON.stringify(signature, null, 2));
-
-        // Get the signing certificate (first certificate in the chain)
-        const signingCert = signature.meta?.certs?.[0];
-
-        this.signatureInfo = {
-          name:
-            signingCert?.issuedTo?.commonName ||
-            signingCert?.issuedTo?.organizationName ||
-            "Unknown",
-          // No timestamp in current structure, using cert valid from date
-          date: new Date(
-            signingCert?.validityPeriod?.notBefore || ""
-          ).toLocaleString(),
-          reason: signature.meta?.signatureMeta?.reason || "Not specified",
-          isValid: signature.verified === true && signature.integrity === true,
-          location: signature.meta?.signatureMeta?.location || undefined
-        };
-        console.log("Processed signature info:", this.signatureInfo);
-      } else {
-        console.log("No signatures found in verification result");
-        this.error = "No digital signature found in the PDF";
-      }
-
-      // Get certificate information
       try {
-        console.log("Getting certificates...");
-        const certificates = await getCertificatesInfoFromPDF(fileBuffer);
-        console.log("Raw certificate response:", certificates);
+        // Get signature verification
+        const verification = await verifyPDF(fileBuffer);
+        console.log(
+          "Verification result:",
+          JSON.stringify(verification, null, 2)
+        );
 
-        if (
-          Array.isArray(certificates) &&
-          certificates.length > 0 &&
-          Array.isArray(certificates[0])
-        ) {
-          console.log("Number of certificates found:", certificates[0].length);
+        if (verification.signatures && verification.signatures.length > 0) {
+          this.hasSignature = true;
+          const signature = verification.signatures[0];
+          console.log("Found signature:", JSON.stringify(signature, null, 2));
 
-          this.certificateInfo = certificates[0].map(cert => ({
-            issuedTo: this.formatEntityName(cert.issuedTo),
-            issuedBy: this.formatEntityName(cert.issuedBy),
-            validFrom: new Date(cert.validityPeriod.notBefore),
-            validTo: new Date(cert.validityPeriod.notAfter)
-          }));
+          // Get the signing certificate (first certificate in the chain)
+          const signingCert = signature.meta?.certs?.[0];
+
+          this.signatureInfo = {
+            name:
+              signingCert?.issuedTo?.commonName ||
+              signingCert?.issuedTo?.organizationName ||
+              "Unknown",
+            date: new Date(
+              signingCert?.validityPeriod?.notBefore || ""
+            ).toLocaleString(),
+            reason: signature.meta?.signatureMeta?.reason || "Not specified",
+            isValid:
+              signature.verified === true && signature.integrity === true,
+            location: signature.meta?.signatureMeta?.location || undefined
+          };
+          console.log("Processed signature info:", this.signatureInfo);
+
+          // Only try to get certificates if we found a signature
+          try {
+            console.log("Getting certificates...");
+            const certificates = await getCertificatesInfoFromPDF(fileBuffer);
+            console.log("Raw certificate response:", certificates);
+
+            if (
+              Array.isArray(certificates) &&
+              certificates.length > 0 &&
+              Array.isArray(certificates[0])
+            ) {
+              console.log(
+                "Number of certificates found:",
+                certificates[0].length
+              );
+
+              this.certificateInfo = certificates[0].map(cert => ({
+                issuedTo: this.formatEntityName(cert.issuedTo),
+                issuedBy: this.formatEntityName(cert.issuedBy),
+                validFrom: new Date(cert.validityPeriod.notBefore),
+                validTo: new Date(cert.validityPeriod.notAfter)
+              }));
+            }
+          } catch (certError) {
+            console.warn("Error getting certificate details:", certError);
+            // Don't set error - we still have signature info
+          }
         } else {
-          console.log("Unexpected certificate format:", typeof certificates);
-          this.certificateInfo = [];
+          console.log("No signatures found in verification result");
+          this.hasSignature = false;
         }
-      } catch (certError) {
-        console.warn("Error getting certificate details:", certError);
-        // Don't set error - we still have signature info
+      } catch (verifyError: any) {
+        // Check for specific error messages that indicate no signature
+        if (
+          verifyError.message?.includes("cannot find subfilter") ||
+          verifyError.message?.includes("no signature found")
+        ) {
+          console.log("PDF has no signature");
+          this.hasSignature = false;
+        } else {
+          // Re-throw other errors to be caught by outer try-catch
+          throw verifyError;
+        }
       }
     } catch (err) {
-      this.error =
-        "Error verifying PDF signature: " +
-        (err instanceof Error ? err.message : String(err));
+      // Only set error if it's not a "no signature" case
+      if (this.hasSignature === false) {
+        this.error = "This PDF does not contain a digital signature";
+      } else {
+        this.error =
+          "Error verifying PDF signature: " +
+          (err instanceof Error ? err.message : String(err));
+      }
       this.signatureInfo = null;
       this.certificateInfo = [];
     } finally {
       this.loading = false;
+      this.fileProcessed = true;
     }
   }
 

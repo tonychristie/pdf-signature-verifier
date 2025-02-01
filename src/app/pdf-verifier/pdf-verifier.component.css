@@ -79,3 +79,13 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+
+.info-message {
+  color: #0c5460;
+  padding: 10px;
+  margin: 10px 0;
+  border: 1px solid #bee5eb;
+  border-radius: 4px;
+  background-color: #d1ecf1;
+  text-align: center;
+}

@@ -17,6 +17,10 @@
     {{ error }}
   </div>
 
+  <div *ngIf="!loading && !error && !hasSignature && fileProcessed" class="info-message">
+    No digital signature was found in this PDF.
+  </div>
+
   <div *ngIf="signatureInfo" class="signature-info">
     <h3>Signature Information</h3>
     <div class="info-item">
